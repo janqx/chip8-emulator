@@ -1,0 +1,11 @@
+Language: Cpp
+BasedOnStyle: Google
+DerivePointerAlignment: false
+PointerAlignment: Left
+AccessModifierOffset: -1
+IndentWidth: 2
+TabWidth: 2
+UseTab: Never
+ConstructorInitializerIndentWidth: 2
+ContinuationIndentWidth: 2
+SpaceBeforeParens: Never
