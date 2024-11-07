@@ -2,7 +2,6 @@
 #include "chip8.h"
 
 #include <SDL2/SDL.h>
-#include <SDL2/SDL_mixer.h>
 
 #include <stdio.h>
 
@@ -127,35 +126,56 @@ void keyboard_handle(struct chip8_t* chip8) {
   }
 }
 
-static Mix_Chunk *beep_chunk;
+static SDL_AudioSpec desired;
+static SDL_AudioSpec obtained;
+static SDL_AudioDeviceID audio_device;
+
+void audio_callback(void* userdata, uint8_t* stream, int len) {
+  int16_t* audio_data = (int16_t*)stream;
+  static uint32_t running_sample_index = 0;
+  const int32_t square_wave_period = 44100 / 440;
+  const int32_t half_square_wave_period = square_wave_period / 2;
+
+  for(int i = 0; i < len / 2; i++) {
+    audio_data[i] =
+      ((running_sample_index++ / half_square_wave_period) % 2) ? 3000 : -3000;
+  }
+}
 
 int sound_init() {
-  if(Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 4096)) {
-    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Mix_OpenAudio() Error: %s\n", Mix_GetError());
-    SDL_Quit();
+  desired.freq = 44100;
+  desired.format = AUDIO_S16LSB;
+  desired.channels = 1;
+  desired.samples = 512;
+  desired.callback = audio_callback;
+  desired.userdata = NULL;
+  audio_device = SDL_OpenAudioDevice(NULL, 0, &desired, &obtained, 0);
+  if(!audio_device) {
+    SDL_Log("failed to SDL_OpenAudioDevice(): %s", SDL_GetError());
     return 0;
   }
-  beep_chunk = Mix_LoadWAV("beep.wav");
-  if(!beep_chunk) {
-    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Could not load beep.wav: %s\n", Mix_GetError());
-    Mix_CloseAudio();
-    SDL_Quit();
+  if((desired.format != obtained.format) || (desired.channels != obtained.channels)) {
+    SDL_Log("failed to get desired Audio Spec");
     return 0;
   }
   return 1;
 }
 
 void sound_handle(struct chip8_t* chip8) {
-  int channel = Mix_PlayChannel(-1, beep_chunk, 0);
-  if(channel == -1) {
-    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to play chirp: %s\n", Mix_GetError());
-    Mix_FreeChunk(beep_chunk);
-    Mix_CloseAudio();
-    SDL_Quit();
+  if(chip8->sound_timer > 0) {
+    chip8->sound_timer--;
+    SDL_PauseAudioDevice(audio_device, 0);
+  } else {
+    SDL_PauseAudioDevice(audio_device, 1);
   }
 }
 
 void sound_destroy() {
-  Mix_FreeChunk(beep_chunk);
-  Mix_Quit();
+  SDL_CloseAudioDevice(audio_device);
+}
+
+void timer_handle(struct chip8_t* chip8) {
+  if(chip8->delay_timer > 0) {
+    chip8->delay_timer--;
+  }
 }

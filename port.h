@@ -15,3 +15,5 @@ int sound_init();
 void sound_handle(struct chip8_t* chip8);
 
 void sound_destroy();
+
+void timer_handle(struct chip8_t* chip8);
